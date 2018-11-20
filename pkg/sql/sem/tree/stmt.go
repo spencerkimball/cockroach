@@ -311,6 +311,12 @@ func (*CreateSequence) StatementType() StatementType { return DDL }
 func (*CreateSequence) StatementTag() string { return "CREATE SEQUENCE" }
 
 // StatementType implements the Statement interface.
+func (*CreateService) StatementType() StatementType { return DDL }
+
+// StatementTag returns a short string identifying the type of statement.
+func (*CreateService) StatementTag() string { return "CREATE SERVICE" }
+
+// StatementType implements the Statement interface.
 func (*CreateStats) StatementType() StatementType { return DDL }
 
 // StatementTag returns a short string identifying the type of statement.
@@ -369,6 +375,12 @@ func (*DropSequence) StatementType() StatementType { return DDL }
 
 // StatementTag returns a short string identifying the type of statement.
 func (*DropSequence) StatementTag() string { return "DROP SEQUENCE" }
+
+// StatementType implements the Statement interface.
+func (*DropService) StatementType() StatementType { return DDL }
+
+// StatementTag returns a short string identifying the type of statement.
+func (*DropService) StatementTag() string { return "DROP SERVICE" }
 
 // StatementType implements the Statement interface.
 func (*DropUser) StatementType() StatementType { return RowsAffected }
@@ -812,6 +824,7 @@ func (n *CreateIndex) String() string               { return AsString(n) }
 func (n *CreateRole) String() string                { return AsString(n) }
 func (n *CreateTable) String() string               { return AsString(n) }
 func (n *CreateSequence) String() string            { return AsString(n) }
+func (n *CreateService) String() string             { return AsString(n) }
 func (n *CreateStats) String() string               { return AsString(n) }
 func (n *CreateUser) String() string                { return AsString(n) }
 func (n *CreateView) String() string                { return AsString(n) }
@@ -823,6 +836,7 @@ func (n *DropRole) String() string                  { return AsString(n) }
 func (n *DropTable) String() string                 { return AsString(n) }
 func (n *DropView) String() string                  { return AsString(n) }
 func (n *DropSequence) String() string              { return AsString(n) }
+func (n *DropService) String() string               { return AsString(n) }
 func (n *DropUser) String() string                  { return AsString(n) }
 func (n *Execute) String() string                   { return AsString(n) }
 func (n *Explain) String() string                   { return AsString(n) }

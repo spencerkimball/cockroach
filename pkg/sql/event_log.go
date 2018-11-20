@@ -64,6 +64,11 @@ const (
 	// EventLogAlterSequence is recorded when a sequence is altered.
 	EventLogAlterSequence EventLogType = "alter_sequence"
 
+	// EventLogCreateService is recorded when a service is created or replaced.
+	EventLogCreateService EventLogType = "create_service"
+	// EventLogDropService is recorded when a service is created or replaced.
+	EventLogDropService EventLogType = "drop_service"
+
 	// EventLogReverseSchemaChange is recorded when an in-progress schema change
 	// encounters a problem and is reversed.
 	EventLogReverseSchemaChange EventLogType = "reverse_schema_change"

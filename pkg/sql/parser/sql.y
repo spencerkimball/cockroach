@@ -418,6 +418,24 @@ func (u *sqlSymUnion) kvOptions() []tree.KVOption {
     }
     return nil
 }
+func (u *sqlSymUnion) usingStmtArg() tree.UsingStmtArg {
+    return u.val.(tree.UsingStmtArg)
+}
+func (u *sqlSymUnion) usingStmtArgs() []tree.UsingStmtArg {
+    if colType, ok := u.val.([]tree.UsingStmtArg); ok {
+        return colType
+    }
+    return nil
+}
+func (u *sqlSymUnion) usingStmt() tree.UsingStmt {
+    return u.val.(tree.UsingStmt)
+}
+func (u *sqlSymUnion) usingStmts() []tree.UsingStmt {
+    if colType, ok := u.val.([]tree.UsingStmt); ok {
+        return colType
+    }
+    return nil
+}
 func (u *sqlSymUnion) transactionModes() tree.TransactionModes {
     return u.val.(tree.TransactionModes)
 }
@@ -532,8 +550,8 @@ func newNameFromStr(s string) *tree.Name {
 
 %token <str> SAVEPOINT SCATTER SCHEMA SCHEMAS SCRUB SEARCH SECOND SELECT SEQUENCE SEQUENCES
 %token <str> SERIAL SERIAL2 SERIAL4 SERIAL8
-%token <str> SERIALIZABLE SERVER SESSION SESSIONS SESSION_USER SET SETTING SETTINGS
-%token <str> SHOW SIMILAR SIMPLE SMALLINT SMALLSERIAL SNAPSHOT SOME SPLIT SQL
+%token <str> SERIALIZABLE SERVICE SERVER SESSION SESSIONS SESSION_USER SET SETTING SETTINGS
+%token <str> SHOW SIGNED SIMILAR SIMPLE SMALLINT SMALLSERIAL SNAPSHOT SOME SPLIT SQL
 
 %token <str> START STATISTICS STATUS STDIN STRICT STRING STORE STORED STORING SUBSTRING
 %token <str> SYMMETRIC SYNTAX SYSTEM SUBSCRIPTION
@@ -651,6 +669,7 @@ func newNameFromStr(s string) *tree.Name {
 %type <tree.Statement> create_user_stmt
 %type <tree.Statement> create_view_stmt
 %type <tree.Statement> create_sequence_stmt
+%type <tree.Statement> create_service_stmt
 %type <tree.Statement> create_stats_stmt
 %type <tree.Statement> create_type_stmt
 %type <tree.Statement> delete_stmt
@@ -665,6 +684,7 @@ func newNameFromStr(s string) *tree.Name {
 %type <tree.Statement> drop_user_stmt
 %type <tree.Statement> drop_view_stmt
 %type <tree.Statement> drop_sequence_stmt
+%type <tree.Statement> drop_service_stmt
 
 %type <tree.Statement> explain_stmt
 %type <tree.Statement> prepare_stmt
@@ -723,6 +743,14 @@ func newNameFromStr(s string) *tree.Name {
 
 %type <str> session_var
 %type <str> comment_text
+%type <str> service_path
+%type <str> service_definition
+%type <bool> using_stmt_arg_signed
+%type <tree.UsingStmtArg> using_stmt_arg
+%type <[]tree.UsingStmtArg> using_stmt_args
+%type <tree.UsingStmt> using_stmt
+%type <[]tree.UsingStmt> using_stmts, opt_using_stmts
+%type <[]tree.UsingStmtArg> using_stmt_args_clause
 
 %type <tree.Statement> transaction_stmt
 %type <tree.Statement> truncate_stmt
@@ -2027,7 +2055,7 @@ comment_text:
 // %Text:
 // CREATE DATABASE, CREATE TABLE, CREATE INDEX, CREATE TABLE AS,
 // CREATE USER, CREATE VIEW, CREATE SEQUENCE, CREATE STATISTICS,
-// CREATE ROLE
+// CREATE ROLE, CREATE SERVICE
 create_stmt:
   create_user_stmt     // EXTEND WITH HELP: CREATE USER
 | create_role_stmt     // EXTEND WITH HELP: CREATE ROLE
@@ -2104,6 +2132,7 @@ create_ddl_stmt:
 | create_type_stmt     { /* SKIP DOC */ }
 | create_view_stmt     // EXTEND WITH HELP: CREATE VIEW
 | create_sequence_stmt // EXTEND WITH HELP: CREATE SEQUENCE
+| create_service_stmt  // EXTEND WITH HELP: CREATE SERVICE
 
 // %Help: CREATE STATISTICS - create a new table statistic (experimental)
 // %Category: Experimental
@@ -2127,6 +2156,105 @@ create_stats_stmt:
     }
   }
 | CREATE STATISTICS error // SHOW HELP: CREATE STATISTICS
+
+// %Help: CREATE SERVICE - create a new HTTP service handler (experimental)
+// %Category: Experimental
+// %Text:
+// CREATE [ OR REPLACE ] SERVICE
+//   AT <path>
+//   AS <definition>
+//   [ USING ( <name> [ ( argname argtype [ SIGNED ] [, ...] ) ] AS <stmt> [; ...] ) ]
+create_service_stmt:
+  CREATE SERVICE AT service_path AS service_definition opt_using_stmts
+  {
+    /* SKIP DOC */
+    $$.val = &tree.CreateService{
+      Path: $4,
+      Definition: $6,
+      UsingStmts: $7.usingStmts(),
+    }
+  }
+| CREATE OR REPLACE SERVICE AT service_path AS service_definition opt_using_stmts
+  {
+    /* SKIP DOC */
+    $$.val = &tree.CreateService{
+      Replace: true,
+      Path: $6,
+      Definition: $8,
+      UsingStmts: $9.usingStmts(),
+    }
+  }
+| CREATE SERVICE error // SHOW HELP: CREATE SERVICE
+
+service_path:
+  SCONST { $$ = $1 }
+
+service_definition:
+  SCONST { $$ = $1 }
+
+using_stmt_arg_signed:
+  SIGNED { $$.val = true }
+| /* EMPTY */ { $$.val = false }
+
+using_stmt_arg:
+  name simple_typename using_stmt_arg_signed
+  {
+    $$.val = tree.UsingStmtArg{
+      Name: $1,
+      Type: $2.colType(),
+      Signed: $3.bool(),
+    }
+  }
+
+using_stmt_args:
+  using_stmt_arg
+  {
+    $$.val = []tree.UsingStmtArg{$1.usingStmtArg()}
+  }
+| using_stmt_args ',' using_stmt_arg
+  {
+    $$.val = append($1.usingStmtArgs(), $3.usingStmtArg())
+  }
+
+using_stmt_args_clause:
+  '(' using_stmt_args ')'
+  {
+    $$.val = $2.usingStmtArgs();
+  }
+| /* EMPTY */
+  {
+    $$.val = []tree.UsingStmtArg(nil)
+  }
+
+using_stmt:
+  table_alias_name using_stmt_args_clause AS preparable_stmt
+  {
+    $$.val = tree.UsingStmt{
+      Name: $1,
+      Args: $2.usingStmtArgs(),
+      Statement: $4.stmt(),
+    }
+  }
+
+using_stmts:
+  using_stmt
+  {
+    $$.val = []tree.UsingStmt{$1.usingStmt()}
+  }
+| using_stmts ';' using_stmt
+  {
+    $$.val = append($1.usingStmts(), $3.usingStmt())
+  }
+
+opt_using_stmts:
+  USING '(' using_stmts ')'
+  {
+    $$.val = $3.usingStmts()
+  }
+| /* EMPTY */
+  {
+    $$.val = ([]tree.UsingStmt)(nil)
+  }
 
 create_changefeed_stmt:
   CREATE CHANGEFEED FOR changefeed_targets opt_changefeed_sink opt_with_options
@@ -2209,7 +2337,7 @@ discard_stmt:
 // %Category: Group
 // %Text:
 // DROP DATABASE, DROP INDEX, DROP TABLE, DROP VIEW, DROP SEQUENCE,
-// DROP USER, DROP ROLE
+// DROP USER, DROP ROLE, DROP SERVICE
 drop_stmt:
   drop_ddl_stmt      // help texts in sub-rule
 | drop_role_stmt     // EXTEND WITH HELP: DROP ROLE
@@ -2223,6 +2351,7 @@ drop_ddl_stmt:
 | drop_table_stmt    // EXTEND WITH HELP: DROP TABLE
 | drop_view_stmt     // EXTEND WITH HELP: DROP VIEW
 | drop_sequence_stmt // EXTEND WITH HELP: DROP SEQUENCE
+| drop_service_stmt  // EXTEND WITH HELP: DROP SERVICE
 
 // %Help: DROP VIEW - remove a view
 // %Category: DDL
@@ -2364,6 +2493,21 @@ table_name_list:
     }
     $$.val = append($1.tableNames(), name)
   }
+
+// %Help: DROP SERVICE - remove a service
+// %Category: Experimental
+// %Text: DROP SERVICE [IF EXISTS] AT <path>
+// %SeeAlso: DROP
+drop_service_stmt:
+  DROP SERVICE AT service_path
+  {
+    $$.val = &tree.DropService{Path: $4, IfExists: false}
+  }
+| DROP SERVICE IF EXISTS AT service_path
+  {
+    $$.val = &tree.DropService{Path: $6, IfExists: true}
+  }
+| DROP SERVICE error // SHOW HELP: DROP SERVICE
 
 // %Help: EXPLAIN - show the logical plan of a query
 // %Category: Misc
@@ -8922,10 +9066,12 @@ unreserved_keyword:
 | SERVER
 | SEQUENCE
 | SEQUENCES
+| SERVICE
 | SESSION
 | SESSIONS
 | SET
 | SHOW
+| SIGNED
 | SIMPLE
 | SMALLSERIAL
 | SNAPSHOT
@@ -9175,5 +9321,6 @@ reserved_keyword:
 cockroachdb_extra_reserved_keyword:
   INDEX
 | NOTHING
+
 
 %%

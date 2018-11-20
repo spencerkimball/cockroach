@@ -172,3 +172,19 @@ func (node *DropRole) Format(ctx *FmtCtx) {
 	}
 	ctx.FormatNode(&node.Names)
 }
+
+// DropService represents a DROP SERVICE statement
+type DropService struct {
+	Path     string
+	IfExists bool
+}
+
+// Format implements the NodeFormatter interface.
+func (node *DropService) Format(ctx *FmtCtx) {
+	ctx.WriteString("DROP SERVICE ")
+	if node.IfExists {
+		ctx.WriteString("IF EXISTS ")
+	}
+	ctx.WriteString("AT ")
+	ctx.WriteString(node.Path)
+}

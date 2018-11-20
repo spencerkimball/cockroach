@@ -164,6 +164,7 @@ var _ planNode = &alterTableNode{}
 var _ planNode = &createDatabaseNode{}
 var _ planNode = &createIndexNode{}
 var _ planNode = &createSequenceNode{}
+var _ planNode = &createServiceNode{}
 var _ planNode = &createStatsNode{}
 var _ planNode = &createTableNode{}
 var _ planNode = &CreateUserNode{}
@@ -174,6 +175,7 @@ var _ planNode = &distinctNode{}
 var _ planNode = &dropDatabaseNode{}
 var _ planNode = &dropIndexNode{}
 var _ planNode = &dropSequenceNode{}
+var _ planNode = &dropServiceNode{}
 var _ planNode = &dropTableNode{}
 var _ planNode = &DropUserNode{}
 var _ planNode = &dropViewNode{}
@@ -789,6 +791,8 @@ func (p *planner) newPlan(
 		return p.CreateView(ctx, n)
 	case *tree.CreateSequence:
 		return p.CreateSequence(ctx, n)
+	case *tree.CreateService:
+		return p.CreateService(ctx, n)
 	case *tree.CreateStats:
 		return p.CreateStatistics(ctx, n)
 	case *tree.Deallocate:
@@ -807,6 +811,8 @@ func (p *planner) newPlan(
 		return p.DropView(ctx, n)
 	case *tree.DropSequence:
 		return p.DropSequence(ctx, n)
+	case *tree.DropService:
+		return p.DropService(ctx, n)
 	case *tree.DropUser:
 		return p.DropUser(ctx, n)
 	case *tree.Explain:

@@ -1139,3 +1139,93 @@ func (node *CreateStats) Format(ctx *FmtCtx) {
 	ctx.WriteString(" FROM ")
 	ctx.FormatNode(&node.Table)
 }
+
+// CreateService represents a CREATE SERVICE statement.
+type CreateService struct {
+	Replace    bool
+	Path       string
+	Definition string
+	UsingStmts UsingStmtList
+}
+
+// Format implements the NodeFormatter interface.
+func (node *CreateService) Format(ctx *FmtCtx) {
+	ctx.WriteString("CREATE ")
+	if node.Replace {
+		ctx.WriteString("OR REPLACE ")
+	}
+	ctx.WriteString("SERVICE AT ")
+	ctx.WriteString(node.Path)
+
+	ctx.WriteString(" AS '")
+	ctx.WriteString(node.Definition)
+	ctx.WriteByte('\'')
+
+	if len(node.UsingStmts) > 0 {
+		ctx.WriteString(" USING (")
+		ctx.FormatNode(&node.UsingStmts)
+		ctx.WriteByte(')')
+	}
+}
+
+// UsingStmtArg represents an argument in a using statment's args clause.
+type UsingStmtArg struct {
+	Name   string
+	Type   coltypes.T
+	Signed bool
+}
+
+// Format implements the NodeFormatter interface.
+func (node *UsingStmtArg) Format(ctx *FmtCtx) {
+	ctx.WriteString(node.Name)
+	ctx.WriteByte(' ')
+	node.Type.Format(ctx.Buffer, ctx.flags.EncodeFlags())
+	if node.Signed {
+		ctx.WriteString(" SIGNED")
+	}
+}
+
+// UsingStmtArgs is a list of UsingStmtArg objects.
+type UsingStmtArgList []UsingStmtArg
+
+// Format implements the NodeFormatter interface.
+func (l *UsingStmtArgList) Format(ctx *FmtCtx) {
+	for i := range *l {
+		if i > 0 {
+			ctx.WriteString(", ")
+		}
+		ctx.FormatNode(&(*l)[i])
+	}
+}
+
+// A UsingStmt represents one using statement.
+type UsingStmt struct {
+	Name      string
+	Args      UsingStmtArgList
+	Statement Statement
+}
+
+// Format implements the NodeFormatter interface.
+func (node *UsingStmt) Format(ctx *FmtCtx) {
+	ctx.WriteString(node.Name)
+	if len(node.Args) > 0 {
+		ctx.WriteByte('(')
+		ctx.FormatNode(&node.Args)
+		ctx.WriteByte(')')
+	}
+	ctx.WriteString(" AS ")
+	ctx.FormatNode(node.Statement)
+}
+
+// A UsingStmtList is a list of UsingStmt objects.
+type UsingStmtList []UsingStmt
+
+// Format implements the NodeFormatter interface.
+func (l *UsingStmtList) Format(ctx *FmtCtx) {
+	for i := range *l {
+		if i > 0 {
+			ctx.WriteString("; ")
+		}
+		ctx.FormatNode(&(*l)[i])
+	}
+}
